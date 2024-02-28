@@ -61,5 +61,20 @@ class EEGNet(nn.Module):
         x = self.block3(x)
         return x
 
+    def weight_init(self, _type='kaiming'):
+        if _type == 'kaiming':
+            for ms in self._modules:
+                kaiming_init(self._modules[ms].parameters())
 
+
+def kaiming_init(ms):
+    for m in ms:
+        if isinstance(m, (nn.Linear, nn.Conv2d)):
+            nn.init.kaiming_uniform(m.weight, a=0, mode='fan_in')
+            if m.bias.data:
+                m.bias.data.zero_()
+        if isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
+            m.weight.data.fill_(1)
+            if m.bias.data:
+                m.bias.data.zero_()
 
