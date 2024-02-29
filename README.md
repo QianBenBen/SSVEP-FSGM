@@ -1,2 +1,3 @@
 # SSVEP-FSGM
-My first attemp in adversarial sample.
+My first attemp in BCI adversarial sample.
+

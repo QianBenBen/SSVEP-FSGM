@@ -24,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, default='train', help='train / test / generate / universal')
     parser.add_argument('--model', type=str, default='EEGNet', help='EEGnet / DeepCNN / ShallowCNN')
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints', help='checkpoint directory path')
-    parser.add_argument('--checkpoint', type=str, default='', help="checkpoint's file name")
+    parser.add_argument('--checkpoint', type=str, default='best_acc.tar', help="checkpoint's file name")
 
     parser.add_argument('--train', type=str, default=True, help="Train or False")
     parser.add_argument('--samples', type=int, default=1375, help="length of eeg data samples")

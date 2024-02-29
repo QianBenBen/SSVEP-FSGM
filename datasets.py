@@ -5,6 +5,10 @@ import scipy
 from scipy import signal
 from tqdm import tqdm
 
+class UnknownDatasetError(Exception):
+    def __str__(self):
+        return "unknown datasets error"
+
 class Benchmark(Dataset):
     classes = {
 
