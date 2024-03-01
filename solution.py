@@ -38,6 +38,8 @@ class Solution:
         self.samp_rate = args.samp_rate
         # 样本采样点数
         self.sample_length = args.samples
+        # checkpoint名
+        self.checkpoint_name = args.checkpoint
 
         # 攻击目标
         self.target = args.target
@@ -83,7 +85,6 @@ class Solution:
         self.history['iter'] = 0
 
         # 模型载入
-        self.checkpoint_name = args.checkpoint
         if self.mode!="train" and args.checkpoint != '':
             self.load_checkpoint(args.checkpoint)
 
@@ -153,7 +154,7 @@ class Solution:
         else:
             y_target = None
 
-        x_adv, (accuracy, cost, accuracy_adv, cost_adv) = self.FGSM(sample_x, sample_y, y_target, self.epsilon)
+        x_adv, (accuracy, cost, accuracy_adv, cost_adv) = self.FGSM(sample_x, sample_y, y_target, epsilon)
 
         print('[BEFORE] accuracy : {:.2f} cost : {:.3f}'.format(accuracy, cost))
         print('[AFTER] accuracy : {:.2f} cost : {:.3f}'.format(accuracy_adv, cost_adv))
@@ -192,15 +193,17 @@ class Solution:
             pass
 
         predict_adv = torch.argmax(h_adv, dim=1)
-        print(predict)
-        print(predict_adv)
+        # predict_h_after = torch.argmax(h, dim=1)
+        # print(predict)
+        # print(predict_adv)
         accuracy_adv = torch.eq(predict_adv, y_true).float().mean()
+        # accuracy_h_after = torch.eq(predict_h_after, y_true).float().mean()
         cost_adv = self.criterion(h_adv, y_true.long())
 
+        print("predict: ", predict)
+        print("predict_adv: ", predict_adv)
+
         return x_adv, (accuracy, cost, accuracy_adv, cost_adv)
-
-
-
 
 
     def model_init(self):
@@ -254,6 +257,9 @@ class Solution:
         print("模型权重加载成功")
 
     def load_data(self):
+        load_data_mode = 1
+        if self.checkpoint_name[-5] == "2":
+            load_data_mode = 2
         if self.dataset_name == "Benchmark":
             train_data = Benchmark("E:\Datasets\BCI\SSVEP\Benchmark", train=True,
                                    transform=transforms.Compose([

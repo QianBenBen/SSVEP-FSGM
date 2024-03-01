@@ -26,6 +26,7 @@ class Benchmark(Dataset):
             train: bool = True,
             transform: Optional[Callable] = None,
             target_transform: Optional[Callable] = None,
+            mode = 1
     ) -> None:
         super(Dataset).__init__()
         self.root = root
@@ -38,7 +39,11 @@ class Benchmark(Dataset):
         # 预处理滤波器设置
         '''没看懂'''
         self.filterB, self.filterA = self.__get_pre_filter(self.samp_rate)
-        self.data, self.pre_data, self.label = self.load_data2()
+        self.mode = mode
+        if self.mode == 1:
+            self.data, self.pre_data, self.label = self.load_data()
+        else:
+            self.data, self.pre_data, self.label = self.load_data2()
 
     # 用每个被试的前5个block
     def load_data(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:

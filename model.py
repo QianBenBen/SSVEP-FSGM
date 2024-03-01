@@ -67,6 +67,13 @@ class EEGNet(nn.Module):
                 kaiming_init(self._modules[ms].parameters())
 
 
+class ShallowCNN(nn.Module):
+    pass
+
+class DeepCNN(nn.Module):
+    pass
+
+
 def kaiming_init(ms):
     for m in ms:
         if isinstance(m, (nn.Linear, nn.Conv2d)):

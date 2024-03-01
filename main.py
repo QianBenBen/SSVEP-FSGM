@@ -11,11 +11,12 @@ if __name__ == '__main__':
     parser.add_argument('--batch_size', type=int, default=16, help='mini-batch size')
     parser.add_argument('--lr', type=float, default=1e-3, help="learning rate of optimizer")
     parser.add_argument('--nb_classes', type=int, default=40, help="number of classes")
-    parser.add_argument('--target', type=int, default=-1, help='target class for targeted generation')
     parser.add_argument('--channels', type=int, default=9, help="number of eeg channels")
     parser.add_argument('--samp_rate', type=int, default=250, help="number of sample rate")
+
     parser.add_argument('--iteration', type=int, default=1, help='the number of iteration for FGSM')
-    parser.add_argument('--epsilon', type=float, default=0.2, help='epsilon for FGSM and i-FGSM')
+    parser.add_argument('--target', type=int, default=-1, help='target class for targeted generation')
+    parser.add_argument('--epsilon', type=float, default=0.001, help='epsilon for FGSM and i-FGSM')
     parser.add_argument('--alpha', type=float, default=2/255, help='alpha for i-FGSM')
     parser.add_argument('--cuda', type=bool, default=True, help='enable cuda')
 
@@ -36,7 +37,7 @@ if __name__ == '__main__':
     if opt.mode == "train":
         solution.train()
     elif opt.mode == "attack":
-        solution.attack()
+        solution.attack(target=opt.target, epsilon=opt.epsilon, iteration=opt.iteration)
 
     # elif opt.train == False:
     #     eeg_test()
