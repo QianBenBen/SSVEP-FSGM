@@ -1,6 +1,6 @@
 import torch
 import argparse
-from solution import Solution, eeg_train
+from solution import Solution
 from model import EEGNet, DepthwiseSeparableConv2d
 
 
@@ -15,26 +15,29 @@ if __name__ == '__main__':
     parser.add_argument('--channels', type=int, default=9, help="number of eeg channels")
     parser.add_argument('--samp_rate', type=int, default=250, help="number of sample rate")
     parser.add_argument('--iteration', type=int, default=1, help='the number of iteration for FGSM')
-    parser.add_argument('--epsilon', type=float, default=0.03, help='epsilon for FGSM and i-FGSM')
+    parser.add_argument('--epsilon', type=float, default=0.2, help='epsilon for FGSM and i-FGSM')
     parser.add_argument('--alpha', type=float, default=2/255, help='alpha for i-FGSM')
     parser.add_argument('--cuda', type=bool, default=True, help='enable cuda')
 
     parser.add_argument('--dataset', type=str, default='Benchmark', help='dataset type')
     parser.add_argument('--env_name', type=str, default='pytorch', help='environment name')
-    parser.add_argument('--mode', type=str, default='train', help='train / test / generate / universal')
+    parser.add_argument('--mode', type=str, default='attack', help='train / test / attack')
     parser.add_argument('--model', type=str, default='EEGNet', help='EEGnet / DeepCNN / ShallowCNN')
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints', help='checkpoint directory path')
-    parser.add_argument('--checkpoint', type=str, default='best_acc.tar', help="checkpoint's file name")
+    parser.add_argument('--checkpoint', type=str, default='best_acc2.tar', help="checkpoint's file name")
 
-    parser.add_argument('--train', type=str, default=True, help="Train or False")
+    # parser.add_argument('--train', type=str, default=True, help="Train or False")
     parser.add_argument('--samples', type=int, default=1375, help="length of eeg data samples")
 
     opt = parser.parse_args()
 
     solution = Solution(opt)
     # solution.save_checkpoint("testweights")
-    if opt.train == True:
+    if opt.mode == "train":
         solution.train()
+    elif opt.mode == "attack":
+        solution.attack()
+
     # elif opt.train == False:
     #     eeg_test()
 

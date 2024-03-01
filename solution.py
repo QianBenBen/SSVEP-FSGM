@@ -12,50 +12,84 @@ import time
 
 from model import EEGNet
 from datasets import *
+from adversary import *
 from utils import *
+
 
 class Solution:
     def __init__(self, args):
+        # 参数
         self.args = args
+        # 是否使用gpu
         self.cuda = (args.cuda and torch.cuda.is_available())
+        # 设备
         self.device = torch.device("cuda") if self.cuda else torch.device("cpu")
+        # 训练轮次
         self.epoch = args.epoch
+        # 训练批次大小
         self.batch_size = args.batch_size
+        # 学习率
         self.lr = args.lr
+        # 分类的类别总数
         self.nb_classes = args.nb_classes
+        # eeg数据的通道数
         self.channels = args.channels
-        self.target = args.target
+        # 采样率
         self.samp_rate = args.samp_rate
+        # 样本采样点数
         self.sample_length = args.samples
 
+        # 攻击目标
+        self.target = args.target
+        # ifgsm的攻击迭代次数
         self.iteration = args.iteration
+        # fgsm的扰动幅度
         self.epsilon = args.epsilon
+        #
         self.alpha = args.alpha
 
+        # 数据集名称
         self.dataset_name = args.dataset
+        # 训练迭代次数统计
         self.global_epoch = 0
+        # 训练iter次数
         self.global_iter = 0
 
+        # 程序运行模式
         self.mode = args.mode
+        # 环境名称
         self.env_name = args.env_name
+        # 网络模型名称
         self.model_name = args.model
 
+
+        # 创建模型保存所在文件夹
         # self.user = input("输入用户姓名: ")
         self.ckpt_dir = os.path.join(args.ckpt_dir, self.env_name + "/" + self.model_name)
         if not os.path.exists(self.ckpt_dir):
             os.mkdir(self.ckpt_dir)
 
+        # 数据加载
         self.load_data()
+        # 网络模型初始化
         self.model_init()
+        # 交叉熵函数
         self.criterion = nn.CrossEntropyLoss()
+
         # Histories
         self.history = dict()
         self.history['acc'] = 0.
         self.history['epoch'] = 0
         self.history['iter'] = 0
 
-        if args.checkpoint != '':
+        # 模型载入
+        self.checkpoint_name = args.checkpoint
+        if self.mode!="train" and args.checkpoint != '':
             self.load_checkpoint(args.checkpoint)
+
+        # 攻击算法
+        self.attack_method = Attack(self.net, self.criterion)
+
 
     def train(self):
         # 训练模式
@@ -63,6 +97,7 @@ class Solution:
         # Training Loop
         start_time = time.time()
         for epoch in range(self.epoch):
+            self.global_epoch+=1
             print(f"---------- EPOCH {epoch + 1} ----------")
             for inputs, labels in self.train_loader:
                 self.global_iter += 1
@@ -72,7 +107,7 @@ class Solution:
                 outputs = self.net(inputs)
                 # 交叉熵计算损失
                 loss = self.criterion(outputs, labels.long())
-                #
+                # 预测结果
                 predict = torch.argmax(outputs, dim=1)
                 acc = torch.eq(predict, labels).float().mean()
                 # 优化器优化模型
@@ -81,11 +116,12 @@ class Solution:
                 # 误差分析
                 if self.global_iter % 100 == 0:
                     end_time = time.time()
-                    print(f"{end_time - start_time}\t 训练次数：{self.global_iter}, acc：{acc}, Loss：{loss}")
+                    print(f"{end_time - start_time:.2f}\t 训练次数：{self.global_iter}, acc：{acc}, Loss：{loss}")
                     # writer.add_scalar("train_loss", loss.item(), total_train_step)
 
         # 测试
         self.test()
+
 
     def test(self):
         self.net.eval()
@@ -106,7 +142,66 @@ class Solution:
             self.history['acc'] = accuracy
             self.history['epoch'] = self.global_epoch
             self.history['iter'] = self.global_iter
-            self.save_checkpoint('best_acc.tar')
+            self.save_checkpoint(self.checkpoint_name)
+
+    def attack(self, num_sample=100, target=-1, epsilon=0.03, alpha=2/255, iteration=1):
+        # 设为非训练模式
+        self.net.eval()
+        sample_x, sample_y = self.sample_data(100)
+        if isinstance(target, int) and (target in range(self.nb_classes)):
+            y_target = torch.LongTensor(sample_y.size()).fill_(target)
+        else:
+            y_target = None
+
+        x_adv, (accuracy, cost, accuracy_adv, cost_adv) = self.FGSM(sample_x, sample_y, y_target, self.epsilon)
+
+        print('[BEFORE] accuracy : {:.2f} cost : {:.3f}'.format(accuracy, cost))
+        print('[AFTER] accuracy : {:.2f} cost : {:.3f}'.format(accuracy_adv, cost_adv))
+
+
+
+    def FGSM(self, x, y_true, y_target=None, eps=0.03, alpha=2/255, iteration=1):
+        x = x.to(self.device)
+        x.requires_grad = True
+        y_true = y_true.to(self.device)
+
+        # 靶向攻击 或 非靶向攻击
+        if y_target is not None:
+            targeted_attack = True
+            y_target = y_target.to(self.device)
+        else:
+            targeted_attack = False
+
+        # 模型对样本置信度预测
+        h = self.net(x)
+        # 模型对样本的预测结果
+        predict = torch.argmax(h, dim=1)
+        # 模型对样本的预测准确度
+        accuracy = torch.eq(predict, y_true).float().mean()
+        # 计算交叉熵损失值
+        cost = self.criterion(h, y_true.long())
+
+        # aa = x.is_leaf
+        # bb = y_true.is_leaf
+        if iteration==1:
+            if targeted_attack==True:
+                x_adv, h_adv, h = self.attack_method.fgsm(x, y_target, True, eps)
+            else:
+                x_adv, h_adv, h = self.attack_method.fgsm(x, y_true, False, eps)
+        else:
+            pass
+
+        predict_adv = torch.argmax(h_adv, dim=1)
+        print(predict)
+        print(predict_adv)
+        accuracy_adv = torch.eq(predict_adv, y_true).float().mean()
+        cost_adv = self.criterion(h_adv, y_true.long())
+
+        return x_adv, (accuracy, cost, accuracy_adv, cost_adv)
+
+
+
+
 
     def model_init(self):
         # 必须要可以访问倒EEGNet结构
@@ -175,6 +270,20 @@ class Solution:
             pass
         else:
             raise UnknownDatasetError()
+
+    def sample_data(self, num_sample=100):
+        total = len(self.test_loader.dataset)
+        # 从全体样本中选取num_sample个样本
+        seed = torch.tensor(np.random.randint(0, total, size=num_sample))
+
+        x = self.test_loader.dataset.data[seed]
+        # x = self.scale(x.float().unsqueeze(1).div(255))
+        y = self.test_loader.dataset.label[seed]
+        x = torch.tensor(x)
+        x = x.float()
+        y = torch.tensor(y)
+
+        return x, y
 
 
 
