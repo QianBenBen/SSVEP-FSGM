@@ -5,15 +5,15 @@ from model import EEGNet, DepthwiseSeparableConv2d
 
 def main(args):
     solution = Solution(args)
-    # solution.save_checkpoint("testweights")
+
 
     if args.mode == "train":
         solution.train()
+    elif args.mode == "test":
+        solution.test()
     elif args.mode == "attack":
         solution.attack(target=args.target, epsilon=args.epsilon, iteration=args.iteration)
 
-    # elif args.train == False:
-    #     eeg_test()
 
 
 
