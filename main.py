@@ -3,6 +3,21 @@ import argparse
 from solution import Solution
 from model import EEGNet, DepthwiseSeparableConv2d
 
+def main(args):
+    solution = Solution(args)
+    # solution.save_checkpoint("testweights")
+
+    if args.mode == "train":
+        solution.train()
+    elif args.mode == "attack":
+        solution.attack(target=args.target, epsilon=args.epsilon, iteration=args.iteration)
+
+    # elif args.train == False:
+    #     eeg_test()
+
+
+
+
 
 if __name__ == '__main__':
 
@@ -14,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--channels', type=int, default=9, help="number of eeg channels")
     parser.add_argument('--samp_rate', type=int, default=250, help="number of sample rate")
 
-    parser.add_argument('--iteration', type=int, default=1, help='the number of iteration for FGSM')
+    parser.add_argument('--iteration', type=int, default=-1, help='the number of iteration for FGSM')
     parser.add_argument('--target', type=int, default=-1, help='target class for targeted generation')
     parser.add_argument('--epsilon', type=float, default=0.001, help='epsilon for FGSM and i-FGSM')
     parser.add_argument('--alpha', type=float, default=2/255, help='alpha for i-FGSM')
@@ -25,20 +40,11 @@ if __name__ == '__main__':
     parser.add_argument('--mode', type=str, default='attack', help='train / test / attack')
     parser.add_argument('--model', type=str, default='EEGNet', help='EEGnet / DeepCNN / ShallowCNN')
     parser.add_argument('--ckpt_dir', type=str, default='checkpoints', help='checkpoint directory path')
-    parser.add_argument('--checkpoint', type=str, default='best_acc2.tar', help="checkpoint's file name")
+    parser.add_argument('--checkpoint', type=str, default='best_acc.tar', help="checkpoint's file name")
 
     # parser.add_argument('--train', type=str, default=True, help="Train or False")
     parser.add_argument('--samples', type=int, default=1375, help="length of eeg data samples")
 
     opt = parser.parse_args()
 
-    solution = Solution(opt)
-    # solution.save_checkpoint("testweights")
-    if opt.mode == "train":
-        solution.train()
-    elif opt.mode == "attack":
-        solution.attack(target=opt.target, epsilon=opt.epsilon, iteration=opt.iteration)
-
-    # elif opt.train == False:
-    #     eeg_test()
-
+    main(opt)

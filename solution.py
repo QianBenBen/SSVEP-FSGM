@@ -154,7 +154,7 @@ class Solution:
         else:
             y_target = None
 
-        x_adv, (accuracy, cost, accuracy_adv, cost_adv) = self.FGSM(sample_x, sample_y, y_target, epsilon)
+        x_adv, (accuracy, cost, accuracy_adv, cost_adv) = self.FGSM(sample_x, sample_y, y_target, epsilon, self.alpha, self.iteration)
 
         print('[BEFORE] accuracy : {:.2f} cost : {:.3f}'.format(accuracy, cost))
         print('[AFTER] accuracy : {:.2f} cost : {:.3f}'.format(accuracy_adv, cost_adv))
@@ -190,7 +190,10 @@ class Solution:
             else:
                 x_adv, h_adv, h = self.attack_method.fgsm(x, y_true, False, eps)
         else:
-            pass
+            if targeted_attack==True:
+                x_adv, h_adv, h = self.attack_method.i_fgsm(x, y_target, True, eps)
+            else:
+                x_adv, h_adv, h = self.attack_method.i_fgsm(x, y_true, False, eps)
 
         predict_adv = torch.argmax(h_adv, dim=1)
         # predict_h_after = torch.argmax(h, dim=1)
@@ -200,8 +203,9 @@ class Solution:
         # accuracy_h_after = torch.eq(predict_h_after, y_true).float().mean()
         cost_adv = self.criterion(h_adv, y_true.long())
 
-        print("predict: ", predict)
-        print("predict_adv: ", predict_adv)
+        print("True label: ", y_true.clone().cpu().numpy().tolist())
+        print("Predict: ", predict.clone().cpu().numpy().tolist())
+        print("predict_adv: ", predict_adv.clone().cpu().numpy().tolist())
 
         return x_adv, (accuracy, cost, accuracy_adv, cost_adv)
 
@@ -250,25 +254,27 @@ class Solution:
             raise
         else:
             print(f"权重文件 {filename} 载入成功")
+
         self.net.load_state_dict(state['model_state'])
         self.optim.load_state_dict(state['optim_state'])
         self.global_epoch = state['epoch']
         self.global_iter = state['iter']
-        print("模型权重加载成功")
+        # print("模型权重加载成功")
 
     def load_data(self):
         load_data_mode = 1
+        # print(f"self.checkpoint_name[-5] : {self.checkpoint_name[-5]}")
         if self.checkpoint_name[-5] == "2":
             load_data_mode = 2
         if self.dataset_name == "Benchmark":
             train_data = Benchmark("E:\Datasets\BCI\SSVEP\Benchmark", train=True,
                                    transform=transforms.Compose([
                                        transforms.ToTensor(),
-                                   ]))
+                                   ]), mode=load_data_mode)
             test_data = Benchmark("E:\Datasets\BCI\SSVEP\Benchmark", train=False,
                                   transform=transforms.Compose([
                                       transforms.ToTensor(),
-                                  ]))
+                                  ]), mode=load_data_mode)
             # dataloader
             self.train_loader = DataLoader(train_data, batch_size=16, shuffle=True)
             self.test_loader = DataLoader(test_data, batch_size=16, shuffle=False)
