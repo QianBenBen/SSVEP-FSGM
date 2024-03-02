@@ -1,13 +1,13 @@
 # SSVEP-FSGM
-My first attemp in BCI adversarial sample.
+**My first attemp in BCI adversarial sample.**  
+**Here are the command formats for each mode**
+
 ## 1、Train Mode
-if you want to train a mode, you can use the command  
 `python main.py --mode train --env_name [your env_name] --model EEGNet --checkpoint best_acc.tar`
 
 
 
 ## 2、Test Mode
-if you want to test a mode, you can use the command  
 `python main.py --mode test --env_name [your env_name] --model EEGNet --checkpoint best_acc.tar`
 
 
