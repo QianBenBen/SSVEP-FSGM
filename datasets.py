@@ -6,6 +6,7 @@ import numpy as np
 import scipy
 from scipy import signal
 from tqdm import tqdm
+import time
 
 class UnknownDatasetError(Exception):
     def __str__(self):
@@ -63,7 +64,7 @@ class Benchmark(Dataset):
             pre_data = np.zeros((40 * self.subject_num, 1, len(channels), 125))
             label = np.zeros(40 * self.subject_num, dtype=int)
 
-        for sub_num in tqdm(range(1, self.subject_num + 1)):
+        for sub_num in tqdm(range(1, self.subject_num + 1), "数据加载--"):
             f = scipy.io.loadmat(self.root + f"/S{sub_num}.mat")
             # print(f"mat{sub_num}文件大小: {f['data'].shape}")
             for block in range(6):

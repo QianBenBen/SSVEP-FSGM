@@ -2,6 +2,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from torchvision.datasets import MNIST
 import torch
 import torch.nn as nn
+from torch import Tensor
 from torchvision import transforms
 from torch.utils.data import DataLoader
 
@@ -43,12 +44,14 @@ class Solution:
 
         # 攻击目标
         self.target = args.target
+        self.targeted_attack = True if self.target>=0 else False
         # ifgsm的攻击迭代次数
         self.iteration = args.iteration
         # fgsm的扰动幅度
         self.epsilon = args.epsilon
         #
         self.alpha = args.alpha
+        self.initial_const = args.initial_const
 
         # 数据集名称
         self.dataset_name = args.dataset
@@ -88,8 +91,12 @@ class Solution:
         if self.mode!="train" and args.checkpoint != '':
             self.load_checkpoint(args.checkpoint)
 
+        self.start_time = time.time()
+
         # 攻击算法
-        self.attack_method = Attack(self.net, self.criterion)
+        self.attack_method = Attack(self.net, self.criterion, self.start_time)
+
+
 
 
     def train(self):
@@ -145,7 +152,7 @@ class Solution:
             self.history['iter'] = self.global_iter
             self.save_checkpoint(self.checkpoint_name)
 
-    def attack(self, num_sample=100, target=-1, epsilon=0.03, alpha=2/255, iteration=1):
+    def attack(self, method="FGSM" , num_sample=100, target=-1, epsilon=0.03, alpha=2/255, iteration=1):
         # 设为非训练模式
         self.net.eval()
         sample_x, sample_y = self.sample_data(100)
@@ -154,12 +161,74 @@ class Solution:
         else:
             y_target = None
 
-        x_adv, (accuracy, cost, accuracy_adv, cost_adv) = self.FGSM(sample_x, sample_y, y_target, epsilon, self.alpha, self.iteration)
+        if method == "FGSM":
+            x_adv, (accuracy, cost, accuracy_adv, cost_adv) = self.FGSM(sample_x, sample_y, y_target, epsilon, self.alpha, self.iteration)
+            print('[BEFORE] accuracy : {:.2f} cost : {:.3f}'.format(accuracy, cost))
+            print('[AFTER] accuracy : {:.2f} cost : {:.3f}'.format(accuracy_adv, cost_adv))
+        elif method == "CW":
+            adv_samples, (accuracy, attack_success_rate, adv_accuracy, l2) = self.CW(sample_x, sample_y, self.target, label_num=self.nb_classes, targeted=self.targeted_attack, initial_const=self.initial_const)
+            print('[BEFORE] accuracy : {:.2f}'.format(accuracy))
+            print('[AFTER] accuracy : {:.2f}  attack_success_rate : {:.2f} l2 : {:.6f}'.format(adv_accuracy, attack_success_rate, l2.float().mean()))
 
-        print('[BEFORE] accuracy : {:.2f} cost : {:.3f}'.format(accuracy, cost))
-        print('[AFTER] accuracy : {:.2f} cost : {:.3f}'.format(accuracy_adv, cost_adv))
+    def CW(self, x: Tensor,
+           y_true: Tensor,
+           y_target: int = None,
+           label_num: int = 1000,
+           targeted: bool = False,
+           confidence: float = 0,
+           learning_rate: float = 0.01,
+           initial_const: float = 0.001,
+           binary_search_steps: int = 9,
+           max_iterations: int = 1000):
 
+        x = x.to(self.device)
+        y_true = y_true.to(self.device)
 
+        # 预测结果
+        h = self.net(x)
+        predict = torch.argmax(h, dim=1)
+        # 模型对样本的预测准确度
+        accuracy = torch.eq(predict, y_true).float().mean()
+
+        # 对EEG数据做归一化处理
+        max_value = torch.max(x)
+        x /= max_value
+
+        adv_samples = torch.zeros_like(x)
+        l2 = torch.zeros_like(y_true)
+        success = 0
+
+        if targeted:
+            for i in range(len(x)):
+                print(f"------ {i} sample ------")
+                sub_x = x[i].unsqueeze(dim=0)
+                suc, score, l2_, adv_sample = self.attack_method.CW(sub_x, y_target, num_labels=self.nb_classes, targeted=targeted, initial_const=1.0)
+
+                if suc:
+                    success+=1
+                    l2[i] = l2_
+                    adv_samples[i] = adv_sample
+        else:
+            for i in range(len(x)):
+                print(f"------ {i} sample ------")
+                sub_x = x[i].unsqueeze(dim=0)
+                sub_y = y_true[i]
+                suc, score, l2_, adv_sample = self.attack_method.CW(sub_x, sub_y, num_labels=self.nb_classes, targeted=targeted, initial_const=1.0)
+
+                if suc:
+                    success += 1
+                    l2[i] = l2_
+                    adv_samples[i] = adv_sample
+
+        adv_samples *= max_value
+        attack_acc = success / len(x)
+
+        adv_h = self.net(adv_samples)
+        adv_predict = torch.argmax(adv_h, dim=1)
+        # 模型对样本的预测准确度
+        adv_accuracy = torch.eq(adv_predict, y_true).float().mean()
+
+        return adv_samples, (accuracy, attack_acc, adv_accuracy, l2)
 
     def FGSM(self, x, y_true, y_target=None, eps=0.03, alpha=2/255, iteration=1):
         x = x.to(self.device)
